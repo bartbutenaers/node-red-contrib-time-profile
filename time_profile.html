@@ -1,0 +1,267 @@
+<!--
+  Copyright 2021, Bart Butenaers
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+  http://www.apache.org/licenses/LICENSE-2.0
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<script type="text/javascript">
+    RED.nodes.registerType('time-profile',{
+        category: 'energy',
+        color: '#a6bbcf',
+        defaults: {
+            outputField: {value: "payload"},
+            command: {value: "create_time_profile"},
+            timeslotCount: {value: 96, required: true},
+            timeslotCountType: {value: "num"},
+            timeslotLength: {value: 900, validate:function(v) { return v != undefined || !["schedule_time_profile", "schedule_time_profile"].includes("#node-input-command"); }},
+            timeslotLengthType: {value: "num"},
+            aggregation: {value: "maximum", validate:function(v) { return v != undefined || !["down_sample_profile"].includes("#node-input-command"); }},
+            aggregationType: {value: "aggr"},
+            profile: {value: [], validate:function(v) { return v != undefined || !["schedule_index_profile", "schedule_time_profile", "down_sample_profile", "up_sample_profile"].includes("#node-input-command"); }},
+            profileType: {value: "json"},
+            switchPoints: {value: [], validate:function(v) { return v != undefined || !["create_index_profile", "create_time_profile"].includes("#node-input-command"); }},
+            switchPointsType: {value: "json"},
+            startIndex: {value: 0, validate:function(v) { return v != undefined || !["schedule_index_profile"].includes("#node-input-command"); }},
+            startIndexType: {value: "num"},
+            startHour: {value: 0, validate:function(v) { return v != undefined || !["schedule_time_profile"].includes("#node-input-command"); }},
+            startHourType: {value: "num"},
+            startMinute: {value: 0, validate:function(v) { return v != undefined || !["schedule_time_profile"].includes("#node-input-command"); }},
+            startMinuteType: {value: "num"},
+            fixedValue: {value: 0, validate:function(v) { return v != undefined || !["create_flat_profile"].includes("#node-input-command"); }},
+            fixedValueType: {value: "num"},
+            name: {value:""}
+        },
+        inputs:1,
+        outputs:1,
+        icon: "font-awesome/fa-sliders",
+        paletteLabel: "time profile",
+        label: function() {
+            return this.name || "time profile";
+        },
+        oneditprepare: function() { 
+            var node = this;
+
+            // Show the outputField value in a typedinput element (dropdown with only 'msg')
+            $("#node-input-outputField").typedInput({
+                //default: 'msg',
+                types:['msg']
+            });
+            
+            // Show the timeslotCount value in a typedinput element (dropdown with 'msg' and 'num')
+            $("#node-input-timeslotCount").typedInput({
+                //default: 'num',
+                types:['msg', 'num'],
+                typeField: $("#node-input-timeslotCountType")
+            });            
+
+            // Show the timeslotLength value in a typedinput element (dropdown with 'msg' and 'num')
+            $("#node-input-timeslotLength").typedInput({
+                //default: 'num',
+                types:['msg', 'num'],
+                typeField: $("#node-input-timeslotLengthType")
+            });  
+            
+            // Create a custom typedinput type, to show a dropdown with all available aggregation types
+            var aggregationOptionsType = {
+                value:"aggr",
+                label:"options",
+                options: [{
+                    value: 'minimum',
+                    label: 'Minimum'
+                },
+                {
+                    value: 'maximum',
+                    label: 'Maximum'
+                },
+                {
+                    value: 'average',
+                    label: 'Average'
+                }]
+            }
+
+            // Show the aggregation value in a typedinput element (dropdown with 'msg' and an enumeration)
+            $("#node-input-aggregation").typedInput({
+                //default: 'aggr',
+                types:['msg', aggregationOptionsType],
+                typeField: $("#node-input-aggregationType")
+            });
+            
+            // Show the profile value in a typedinput element (dropdown with 'msg' and 'json')
+            $("#node-input-profile").typedInput({
+                //default: [],
+                types:['msg', 'json'],
+                typeField: $("#node-input-profileType")
+            });
+            
+             // Show the switchPoints value in a typedinput element (dropdown with 'msg' and 'json')
+            $("#node-input-switchPoints").typedInput({
+                //default: [],
+                types:['msg', 'json'],
+                typeField: $("#node-input-switchPointsType")
+            }); 
+            
+            // Show the start index value in a typedinput element (dropdown with 'msg' and 'num')
+            $("#node-input-startIndex").typedInput({
+                //default: 'msg',
+                types:['msg', 'num'],
+                typeField: $("#node-input-startIndexType")
+            }); 
+
+            // Show the start hour value in a typedinput element (dropdown with 'msg' and 'num')
+            $("#node-input-startHour").typedInput({
+                //default: 'msg',
+                types:['msg', 'num'],
+                typeField: $("#node-input-startHourType")
+            }); 
+            
+            // Show the start minute value in a typedinput element (dropdown with 'msg' and 'num')
+            $("#node-input-startMinute").typedInput({
+                //default: 'msg',
+                types:['msg', 'num'],
+                typeField: $("#node-input-startMinuteType")
+            }); 
+            
+            // Show the timeslot value in a typedinput element (dropdown with 'msg' and 'num')
+            $("#node-input-fixedValue").typedInput({
+                //default: 'msg',
+                types:['msg', 'num'],
+                typeField: $("#node-input-fixedValueType")
+            }); 
+            
+            // When the command combobox value changes, only the corresponding field(s) input fields should be displayed
+            $("#node-input-command").change(function() {
+                $(".command-related-row").hide();
+            
+                // When the command changes, probably some elements should be hidden or showed
+                switch (this.value) {
+                    case "schedule_index_profile":
+                        $("#timeslotCount-div").show();
+                        $("#profile-div").show();
+                        $("#startIndex-div").show();
+                        break;
+                    case "schedule_time_profile":
+                        $("#timeslotCount-div").show();
+                        $("#timeslotLength-div").show();
+                        $("#profile-div").show();
+                        $("#startHour-div").show();
+                        $("#startMinute-div").show();
+                        break;
+                    case "down_sample_profile":
+                        $("#timeslotCount-div").show();
+                        $("#aggregation-div").show();
+                        $("#profile-div").show();
+                        break;
+                    case "up_sample_profile":
+                        $("#timeslotCount-div").show();
+                        $("#profile-div").show();
+                        break;
+                    case "create_index_profile":
+                        $("#timeslotCount-div").show();
+                        $("#switchPoints-div").show();
+                        break;
+                    case "create_time_profile":
+                        $("#timeslotCount-div").show();
+                        $("#timeslotLength-div").show();
+                        $("#switchPoints-div").show();
+                        break;
+                    case "create_flat_profile":
+                        $("#timeslotCount-div").show();
+                        $("#fixedValue-div").show();
+                        break;
+                }              
+            });
+            $("#node-input-command").change();
+        }
+    });
+</script>
+<script type="text/x-red" data-template-name="time-profile">
+    <div class="form-row">
+        <label for="node-input-name"><i class="icon-tag"></i> Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div> 
+    <div class="form-row">
+        <label for="node-input-outputField"><i class="fa fa-sign-out"></i> Output field</label>
+        <input id="node-input-outputField" type="text" style="width: 70%">
+    </div>
+    <div class="form-row">
+        <label for="node-input-command"><i class="fa fa-wrench"></i> Command</label>
+        <select id="node-input-command" style="width: 70%">
+            <option value="schedule_index_profile">Schedule profile at index</option>
+            <option value="schedule_time_profile">Schedule profile at time</option> 
+            <option value="down_sample_profile">Down-sample profile</option>
+            <option value="up_sample_profile">Up-sample profile</option>
+            <option value="create_index_profile">Create profile by indexes</option>
+            <option value="create_time_profile">Create profile by times</option>
+            <option value="create_flat_profile">Create flat profile</option>
+        </select>
+    </div>
+    <div class="form-row command-related-row" id="timeslotCount-div">
+        <label for="node-input-timeslotCount"><i class="fa fa-barcode"></i> Slot count</label>
+        <input id="node-input-timeslotCount" type="text" style="width: 70%">
+        <input type="hidden" id="node-input-timeslotCountType">
+    </div>
+    <div class="form-row command-related-row" id="timeslotLength-div">
+        <label for="node-input-timeslotLength"><i class="fa fa-arrows-h"></i> Slot length</label>
+        <input id="node-input-timeslotLength" type="text" style="width: 70%">
+        <input type="hidden" id="node-input-timeslotLengthType">
+    </div>
+    <div class="form-row command-related-row" id="aggregation-div">
+        <label for="node-input-aggregation"><i class="fa fa-calculator"></i> Aggregation</label>
+        <input id="node-input-aggregation" type="text" style="width: 70%">
+        <input type="hidden" id="node-input-aggregationType">
+    </div>
+    <div class="form-row command-related-row" id="profile-div">
+        <label for="node-input-profile"><i class="fa fa-bar-chart"></i> Profile</label>
+        <input id="node-input-profile" type="text" style="width: 70%">
+        <input type="hidden" id="node-input-profileType">
+    </div>
+    <div class="form-row command-related-row" id="switchPoints-div">
+        <label for="node-input-switchPoints"><i class="fa fa-ellipsis-h"></i> Switch points</label>
+        <input id="node-input-switchPoints" type="text" style="width: 70%">
+        <input type="hidden" id="node-input-switchPointsType">
+    </div>
+    <div class="form-row command-related-row" id="startIndex-div">
+        <label for="node-input-startIndex"><i class="fa fa-hashtag"></i> Start index</label>
+        <input id="node-input-startIndex" type="text" style="width: 70%">
+        <input type="hidden" id="node-input-startIndexType">
+    </div>
+    <div class="form-row command-related-row" id="startHour-div">
+        <label for="node-input-startHour"><i class="fa fa-clock-o"></i> Start hour</label>
+        <input id="node-input-startHour" type="text" style="width: 70%">
+        <input type="hidden" id="node-input-startHourType">
+    </div>
+    <div class="form-row command-related-row" id="startMinute-div">
+        <label for="node-input-startMinute"><i class="fa fa-clock-o"></i> Start minute</label>
+        <input id="node-input-startMinute" type="text" style="width: 70%">
+        <input type="hidden" id="node-input-startMinuteType">
+    </div>
+    <div class="form-row command-related-row" id="fixedValue-div">
+        <label for="node-input-fixedValue"><i class="fa fa-tag"></i> Fixed value</label>
+        <input id="node-input-fixedValue" type="text" style="width: 70%">
+        <input type="hidden" id="node-input-fixedValueType">
+    </div>
+</script>
+
+<script type="text/x-red" data-help-name="time-profile">
+    <p>A node to generate profiles, consisting out of equal length timeslots.</p>
+    <p>See my <a target="_blank" href="TODO url">Github readme</a> page for more information and example flows.  Note that those example flows are also available via the Node-RED <a target="_blank" href="notused" onclick="RED.actions.invoke('core:show-import-dialog');return false;">Import dialog</a>.</p>
+    <p><strong>Output field:</strong><br/>
+    Specify in which field of the output message the new profile array should be send.  By default the <code>msg.payload</code> will be used.
+    <p><strong>Command:</strong><br/>
+    Specify which profile-related command should be executed.  Depending on the selected command, other input fields will be displayed:
+    <ul>
+        <li><code>Schedule profile at index</code>: Generate a horizon of a specified number of timeslots, where the input profile will be scheduled at the specified timeslot index.  All other timeslots will get a 0 value.</li>
+        <li><code>Schedule profile at time</code>: Generate a horizon of a specified number of timeslots, where the input profile will be scheduled at the specified time (hour:minute).  All other timeslots will get a 0 value.  Note that it is required to specify the time length of a single timeslot, in order to be able to calculate in which timeslot the profile needs to start.</li>
+        <li><code>Down-sample profile</code>: Group every N timeslots (as specified by the number of timeslots) and calculate the aggregated value (i.e. minimum, maximum, average) of those timeslots.  The output profile will be N times shorter, containing only the aggregated numeric values.  A use case is to convert a 15-minute profile to a 5-minute profile by grouping every 3 successive profile values.</li>
+        <li><code>Up-sample profile</code>: Every timeslot will be duplicated N times (as specified by the number of timeslots).  The output profile will be N times longer, due to the duplicated numeric values.  A use case is to convert a 5-minute profile to a 15-minute profile by duplicating every timeslot 3 times.</li>
+        <li><code>Create profile by indexes</code>: Create a new profile based on switchpoint indexes.  For every switchpoint its new value and start index value needs to be specified.</li>
+        <li><code>Create profile by times</code>: Create a new profile based on switchpoint times.  For every switchpoint its new value and time (hour:minute) needs to be specified.  A use case is to generate a TOU (Time Of Use) profile for electricity prices.</li>
+        <li><code>Create flat profile</code>: Generate a horizontal profile, by specifying the number of timeslots and the fixed numeric value.</li>
+    </ul></p>
+</script>
