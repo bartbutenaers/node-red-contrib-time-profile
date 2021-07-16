@@ -245,3 +245,7 @@ Using following simple flow, I could show the consumption profiles on my dashboa
 Note that this flow is far from complete!  It is only used here as a basic example to demonstrate how to show the consumption profiles (of your appliances) in your Node-RED dashboard:
 
 ![demo_use_case](https://user-images.githubusercontent.com/14224149/125865262-7e3d34fd-4462-4385-891d-a7265234dc52.gif)
+
+The down-sampling nodes have been added to have a light low-resolution graph in the dashboard.  This can be useful - if you have measured the power consumption at high resolutions - but you don't want to send too much data to your dashboard.  However it is also useful to can remove the down-sampling nodes, to see a ***high resolution graph which shows much more detail (like e.g. shorter peaks)***:
+
+![image](https://user-images.githubusercontent.com/14224149/126013125-0e10ddcd-e74d-4fd2-9381-2737352f7265.png)
